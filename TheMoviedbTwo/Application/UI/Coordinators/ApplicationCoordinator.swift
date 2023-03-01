@@ -4,24 +4,42 @@ final class ApplicationCoordinator: BaseCoordinator {
     
     private let coordinatorFactory: CoordinatorFactoryImpl
     private let router: Router
-    private let screenFactory: ScreenFactory
     private var isAutorized = false
     
-    
-    init(router: Router, coordinatorFactory: CoordinatorFactoryImpl, screenFactory: ScreenFactory) {
+    init(router: Router, coordinatorFactory: CoordinatorFactoryImpl) {
         self.router = router
         self.coordinatorFactory = coordinatorFactory
-        self.screenFactory = screenFactory
-
     }
     
     override func start() {
-        showSplash()
+        if isAutorized {
+//            runMovieFlow()
+        } else {
+            runLoginFlow()
+        }
     }
     
-    private func showSplash() {
-        let splashScreen = screenFactory.makeSplashScreen()
-        router.setRootModule(splashScreen)
+    private func runLoginFlow() {
+        
+        let coordinator = coordinatorFactory.makeLoginCoordinator(router: router)
+        coordinator.finishFlow = { [weak self, weak coordinator] in
+            self?.isAutorized = true
+            self?.start()
+            self?.removeDependency(coordinator)
+        }
+        self.addDependency(coordinator)
+        coordinator.start()
     }
+    
+//    private func runMovieFlow() {
+//        let coordinator = coordinatorFactory.makeMovieCoordinator(router: router)
+//        coordinator.finishFlow = { [weak self, weak coordinator] in
+//            self?.isAutorized = true
+//            self?.start()
+//            self?.removeDependency(coordinator)
+//        }
+//        self.addDependency(coordinator)
+//        coordinator.start()
+//    }
     
 }

@@ -9,13 +9,30 @@ import UIKit
 import class Alamofire.Session
 
 final class Di {
-    fileprivate let screenFactory: ScreenFactoryImpl
-    fileprivate let coordinatorFactory: CoordinatorFactory
-
     
+    fileprivate let configuration: Configuration
+    fileprivate let session: Session
+    fileprivate let requestBuilder: RequestBuilderImpl
+    fileprivate let sessionRepository: SessionRepositoryImpl
+    fileprivate let apiClient: ApiClient
+    fileprivate let screenFactory: ScreenFactoryImpl
+    fileprivate let coordinatorFactory: CoordinatorFactoryImpl
+    fileprivate var authenticatorService: AuthenticatorServiceImpl
+    
+    fileprivate var loginProvider: LoginProviderImpl {
+        return LoginProviderImpl(authenticator: authenticatorService)
+    }
+
     init() {
+        configuration = ProductionConfiguration()
+        session = Session.default
+        requestBuilder = RequestBuilderImpl(configuration: configuration)
+        sessionRepository = SessionRepositoryImpl()
+        apiClient = ApiClient(requestBuilder: requestBuilder, session: session)
         screenFactory = ScreenFactoryImpl()
         coordinatorFactory = CoordinatorFactoryImpl(screenFactory: screenFactory)
+        authenticatorService = AuthenticatorServiceImpl(sessionRepository: sessionRepository, accountApiClient: apiClient)
+        
         screenFactory.di = self
     }
 }
@@ -41,6 +58,7 @@ extension Di: AppFactory {
 // в принципе можно здесь на закрывать протоколом ()
 protocol ScreenFactory {
     func makeSplashScreen() -> UIViewController
+    func makeLoginScreen() -> LoginScreenVC<LoginScreenViewImpl>
 }
 
 
@@ -53,11 +71,16 @@ final class ScreenFactoryImpl: ScreenFactory {
         let view = SplashScreenView.loadFromNib()
         return ContainerViewController(rootView: view)
     }
+    
+    func makeLoginScreen() -> LoginScreenVC<LoginScreenViewImpl> {
+        return LoginScreenVC<LoginScreenViewImpl>(loginProvider: di.loginProvider)
+    }
 }
 
 protocol CoordinatorFactory {
     
     func makeApplicationCoordinator(router: Router) -> ApplicationCoordinator
+    func makeLoginCoordinator(router: Router) -> LoginCoordinator
     
 }
 
@@ -70,7 +93,11 @@ final class CoordinatorFactoryImpl: CoordinatorFactory {
     }
     
     func makeApplicationCoordinator(router: Router) -> ApplicationCoordinator {
-        return ApplicationCoordinator(router: router, coordinatorFactory: self, screenFactory: screenFactory)
+        return ApplicationCoordinator(router: router, coordinatorFactory: self)
+    }
+    
+    func makeLoginCoordinator(router: Router) -> LoginCoordinator {
+        return LoginCoordinator(router: router, screenFactory: screenFactory)
     }
     
 }
